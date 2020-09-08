@@ -7,6 +7,7 @@ import (
 	"log"
 	"math/rand"
 	"strconv"
+	"sync"
 	"time"
 
 	persistent_treap "github.com/gengliqi/persistent_treap/persistent_treap"
@@ -59,6 +60,7 @@ func newState() stateType {
 
 var magicNumberKey = uint64(6364136223846793005)
 var magicNumberValue = uint64(1103515245)
+var raftstoreCheckOnce sync.Once
 
 func (s stateType) Insert(k Key, v Value) stateType {
 	newState := stateType{}
@@ -206,15 +208,18 @@ func (c *rawkvClient) SetUp(ctx context.Context, node []cluster.Node, clientNode
 
 // TearDown implements the core.Client interface.
 func (c *rawkvClient) TearDown(ctx context.Context, nodes []cluster.ClientNode, idx int) error {
-	time.Sleep(time.Duration(c.conf.SleepTimebeforeCheck) * time.Second)
+	checkRaftStoreConsistency := func() {
+		log.Println("sleep for a while before checking raftstore consistency")
+		time.Sleep(time.Duration(c.conf.SleepTimebeforeCheck) * time.Second)
 
-	var err error
-	c.debugClients, err = raftstore_check.NewTiKvDebugClient(ctx, c.tikvAddrs)
-	if err != nil {
-		log.Fatalf("create tikv debug client error: %v", err)
+		var err error
+		c.debugClients, err = raftstore_check.NewTiKvDebugClient(ctx, c.tikvAddrs)
+		if err != nil {
+			log.Fatalf("create tikv debug client error: %v", err)
+		}
+		c.debugClients.CheckRaftStoreConsistency()
 	}
-	c.debugClients.CheckRaftStoreConsistency()
-
+	raftstoreCheckOnce.Do(checkRaftStoreConsistency)
 	return nil
 }
 
