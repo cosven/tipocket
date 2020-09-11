@@ -26,6 +26,7 @@ var (
 	valueNum1MB          = flag.Int("ValueNum1MB", 200, "1MB value kind number")
 	valueNum5MB          = flag.Int("ValueNum5MB", 40, "5MB value kind number")
 	sleepTimebeforeCheck = flag.Int("SleepTimebeforeCheck", 60, "sleep time before check raftstore consistency")
+	local                = flag.Bool("local", false, "run the test with local cluster")
 )
 
 func main() {
@@ -55,11 +56,17 @@ func main() {
 		ValueNum1MB:   *valueNum1MB,
 		ValueNum5MB:   *valueNum5MB,
 	})
-	//kvs := []string{"127.0.0.1:20160", "127.0.0.1:20162", "127.0.0.1:20161"}
+
+	var provider cluster.Provider
+	if *local {
+		kvs := []string{"127.0.0.1:20160", "127.0.0.1:20162", "127.0.0.1:20161"}
+		provider = cluster.NewLocalClusterProvisioner([]string{"127.0.0.1:4000"}, []string{"127.0.0.1:2379"}, kvs)
+	} else {
+		provider = cluster.NewDefaultClusterProvider()
+	}
 	suit := util.Suit{
 		Config:   &cfg,
-		Provider: cluster.NewDefaultClusterProvider(),
-		//Provider: cluster.NewLocalClusterProvisioner([]string{"127.0.0.1:4000"}, []string{"127.0.0.1:2379"}, kvs),
+		Provider: provider,
 		ClientCreator: rawkvlinearizability.RawkvClientCreator{
 			Cfg: rawkvlinearizability.Config{
 				KeyStart:             *keyStart,
