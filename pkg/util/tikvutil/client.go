@@ -129,7 +129,7 @@ func NewTiKvDebugClient(ctx context.Context, urls []string /*, security Security
 	}
 	c.debugClients = make(map[string]debugpb.DebugClient)
 	for i := 0; i < len(urls); i++ {
-		if err := c.AddDebugClient(urls[i]); err != nil {
+		if err := c.addDebugClient(urls[i]); err != nil {
 			log.Fatalf("create tikv debug client error: %v", err)
 		}
 	}
@@ -137,7 +137,7 @@ func NewTiKvDebugClient(ctx context.Context, urls []string /*, security Security
 	return c, nil
 }
 
-func (c *TiKvDebugClients) AddDebugClient(addr string) error {
+func (c *TiKvDebugClients) addDebugClient(addr string) error {
 	_, ok := c.debugClients[addr]
 	if ok {
 		return errors.New("already has same address")
@@ -160,6 +160,10 @@ func (c *TiKvDebugClients) AddDebugClient(addr string) error {
 	}
 
 	c.debugClients[addr] = debugpb.NewDebugClient(cc)
+	return nil
+}
+
+func (c *TiKvDebugClients) Close() error {
 	return nil
 }
 
@@ -273,7 +277,7 @@ func (c *TiKvDebugClients) CheckRaftStoreConsistency() {
 	log.Infof("end checking raftstore consistency")
 }
 
-func (c *TiKvDebugClients) InjectFailPoint(name, action string) {
+func (c *TiKvDebugClients) InjectFailPoint(name, action string) error {
 	log.Infof("inject failpoint %s, %s", name, action)
 	for url, debugClient := range c.debugClients {
 		request := &debugpb.InjectFailPointRequest{
@@ -282,7 +286,24 @@ func (c *TiKvDebugClients) InjectFailPoint(name, action string) {
 		}
 		_, err := debugClient.InjectFailPoint(c.ctx, request)
 		if err != nil {
-			log.Errorf("%s inject failpoint err %v", url, err)
+			log.Errorf("inject failpoint for node(%s) err %v", url, err)
+			return err
 		}
 	}
+	return nil
+}
+
+func (c *TiKvDebugClients) RecoverFailPoint(name string) error {
+	log.Infof("recover failpoint %s", name)
+	for url, debugClient := range c.debugClients {
+		request := &debugpb.RecoverFailPointRequest{
+			Name: name,
+		}
+		_, err := debugClient.RecoverFailPoint(c.ctx, request)
+		if err != nil {
+			log.Errorf("recover failpoint for node(%s) err %v", url, err)
+			return err
+		}
+	}
+	return nil
 }
