@@ -207,6 +207,12 @@ func (c *rawkvClient) SetUp(ctx context.Context, nodes []cluster.Node, clientNod
 			}
 		}
 		log.Println("client 0 delete all related key value")
+
+		c.debugClients, err = tikvutil.NewTiKvDebugClient(ctx, c.tikvAddrs)
+		if err != nil {
+			log.Fatalf("create tikv debug client error: %v", err)
+		}
+		c.debugClients.InjectFailPoint("on_schedule_merge", "20%return()")
 	}
 
 	log.Printf("setup client %v end", idx)
@@ -225,7 +231,6 @@ func (c *rawkvClient) TearDown(ctx context.Context, nodes []cluster.ClientNode, 
 			log.Fatalf("create tikv debug client error: %v", err)
 		}
 		c.debugClients.CheckRaftStoreConsistency()
-		c.debugClients.InjectFailPoint("on_handle_apply", "panic")
 	}
 	raftstoreCheckOnce.Do(checkRaftStoreConsistency)
 	return nil
