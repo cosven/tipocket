@@ -213,6 +213,7 @@ func (c *rawkvClient) SetUp(ctx context.Context, nodes []cluster.Node, clientNod
 			log.Fatalf("create tikv debug client error: %v", err)
 		}
 		c.debugClients.InjectFailPoint("on_schedule_merge", "20%return()")
+		log.Println("client 0 inject failpoint on_schedule_merge")
 	}
 
 	log.Printf("setup client %v end", idx)
